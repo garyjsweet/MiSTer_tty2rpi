@@ -1,13 +1,6 @@
 source ~/tty2rpi.ini
 xset -b
 
-systemctl --user start tty2rpi-socket.service tty2rpi-inotify.service tty2rpi-update.timer
+systemctl --user start tty2rpi-python.service
 sleep 1
 
-# Show IP addresses
-echo "CMDSHOWIPS" > "${SOCKET}"
-sleep ${IPTIMEOUT}
-
-# Show Welcome screen
-KILLPID feh
-feh -q -F ~/tty2rpi-pics/tty2rpi.png &
