@@ -13,7 +13,7 @@ userinifile=/media/fat/tty2rpi/tty2rpi-user.ini
 
 cd /tmp
 
-debug=true
+debug=false
 
 # Debug function
 dbug() {
@@ -52,6 +52,8 @@ touch ${corenamefile}
 touch ${currentpathfile}
 touch ${fullpathfile}
 touch ${startpathfile}
+touch ${selectfile}
+touch ${samgamefile}
 
 if [ "${debug}" = "true" ]; then
   quiet="-qq"
@@ -63,28 +65,36 @@ sleep ${WAITSECS}
 while true; do                                                                # main loop
   newcore=$(encodespaces "$(cat ${corenamefile})")                                              # get CORENAME
   dbug "Read CORENAME: -${newcore}-"
-  newcurpath=$(encodespaces "$(cat ${currentpathfile})")
-  dbug "Read CURPATH: -${newcurpath}-"
   newfullpath=$(encodespaces "$(cat ${fullpathfile})")
   dbug "Read FULLPATH: -${newfullpath}-"
   newstartpath=$(encodespaces "$(cat ${startpathfile})")
   dbug "Read STARTPATH: -${newstartpath}-"
+  newsamgame=$(encodespaces "$(cat ${samgamefile})")
+  dbug "Read SAM_Game.txt: -${newsamgame}-"
+  newfileselect=$(encodespaces "$(cat ${selectfile})")
+  dbug "Read FILESELECT: -${newfileselect}-"
+  newcurpath=$(encodespaces "$(cat ${currentpathfile})")
+  dbug "Read CURPATH: -${newcurpath}-"
 
   if [ "${newcore}" != "${oldcore}" ] ||
      [ "${newcurpath}" != "${oldcurpath}" ] ||
      [ "${newfullpath}" != "${oldfullpath}" ] ||
-     [ "${newstartpath}" != "${oldstartpath}" ]; then                                        # proceed only if Core has changed
-    dbug "Send -${newcore}- -${newfullpath}- -${newcurpath}- -${newstartpath}- ${TTYDEV}."
-    senddata "CMDCOREXTRA,${newcore},${newfullpath},${newcurpath},${newstartpath}"                                                # The "Magic"
+     [ "${newstartpath}" != "${oldstartpath}" ] ||
+     [ "${newfileselect}" != "${oldfileselect}" ] ||
+     [ "${newsamgame}" != "${oldsamegame}" ]; then                                        # proceed only if Core has changed
+    dbug "Send -${newcore}- -${newfullpath}- -${newcurpath}- -${newstartpath}- -${newfileselect}- -${newsamgame}- ${TTYDEV}."
+    senddata "CMDCOREXTRA,${newcore},${newfullpath},${newcurpath},${newstartpath},${newfileselect},${newsamgame}"                                                # The "Magic"
     oldcore="${newcore}"                                                        # update oldcore variable
     oldcurpath="${newcurpath}"
     oldfullpath="${newfullpath}"
     oldstartpath="${newstartpath}"
+    oldfileselect="${newfileselect}"
+    oldsamgame="${newsamgame}"
   else                                                                        # end if core check
     . ${userinifile}                                            # ReRead INI for changes
-    inotifywait ${quiet} -e modify -e create "${userinifile}" "${corenamefile}" "${fullpathfile}" "${currentpathfile}" "${startpathfile}"
-    sleep 0.1
+    inotifywait ${quiet} -e modify -e create "${userinifile}" "${currentpathfile}" "${newfileselect}"
   fi
+  sleep 0.1
 
 done                                                                                # end while
 # ** End Main **

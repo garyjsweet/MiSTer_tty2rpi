@@ -10,6 +10,100 @@ import threading
 import logging
 import socket
 
+BASIC_FONT_SIZE = 20
+MAX_FONT_SIZE   = 70
+
+system_map = {
+    "adam" : "avision",
+    "avision" : "avision",
+    "adventurevision" : "avision",
+    "arcadia2001" : "co2650",
+    "atari2600" : "atari2600",
+    "atari5200" : "atari5200",
+    "atari7800" : "atari7800",
+    "atarilynx" : "atarilynx",
+    "ballyastrocade" : "astrocade",
+    "astrocade" : "astrocade",
+    "genesis" : "genesis",
+    "megadrive" : "genesis",
+    "coleco" : "coleco",
+    "colecovision" : "coleco",
+    "channelf" : "channelf",
+    "mega-cd" : "megacd",
+    "megacd" : "megacd",
+    "megaduck" : "megaduck",
+    "mister_rbfs" : "arcade",
+    "neogeomvs/aes" : "neogeo",
+    "neogeo" : "neogeo",
+    "nes" : "nes",
+    "snes" : "snes",
+    "pcengineduo" : "tgfx16",
+    "tgfx16" : "tgfx16",
+    "playstation" : "psx",
+    "psx" : "psx",
+    "super32x" : "s32x",
+    "s32x" : "s32x",
+    "supergameboy" : "sgb",
+    "sgb" : "sgb",
+    "acornarchimedes" : "archie",
+    "archie" : "archie",
+    "amiga" : "minimig",
+    "minimig" : "minimig",
+    "atariest/ste" : "atarist",
+    "atarist" : "atarist",
+    "atom" : "acornatom",
+    "acornatom" : "acornatom",
+    "bbcmicro/master" : "bbcmicro",
+    "bbcmicro" : "bbcmicro",
+    "commodore64" : "c64",
+    "c64" : "c64",
+    "c128" : "c128",
+    "electron" : "acornelectron",
+    "acornelectron" : "acornelectron",
+    "lynx48/96k" : "lynx48",
+    "lynx48" : "lynx48",
+    "macintoshplus" : "macplus",
+    "macplus" : "macplus",
+    "pc(486sx)" : "ao486",
+    "ao486" : "ao486",
+    "pc/xt" : "pcxt",
+    "pcxt" : "pcxt",
+    "sinclairql" : "ql",
+    "ql" : "ql",
+    "zxspectrum" : "spectrum",
+    "spectrum" : "spectrum",
+    "zxspectrumnext" : "zxnext",
+    "zxnext" : "zxnext",
+    "vectrex" : "vectrex",
+    "wonderswan" : "wonderswan",
+    "wonderswan color" : "wonderswancolor"
+}
+
+def find_system(s):
+    words = s.lower().split()
+    sys = ''.join(words)
+    if sys in system_map:
+        return system_map[sys]
+
+    parts = s.lower().split("/")
+    for p in parts:
+        if p in system_map:
+            return system_map[p]
+
+    parts = s.lower().split("_")
+    for p in parts:
+        if p in system_map:
+            return system_map[p]
+
+    for w in words:
+        if w in system_map:
+            return system_map[w]
+    return sys
+
+sys_pics = {}
+
+font = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeSansBoldOblique', BASIC_FONT_SIZE)
+
 logging.basicConfig(filename='/home/pi/display.log', level=logging.INFO, filemode='w', encoding='utf-8')
 
 # rom>title>year>rating>publisher>developer>genre>score>players>description>
@@ -33,10 +127,12 @@ class GameData:
     _picture = ''
 
     def __init__(self, system, row):
-        self._system  = system
+        self._system  = find_system(system)
         self._entries = row.split('>')
         while len(self._entries) < NUM_ENTRIES:
             self._entries.append('')
+        for i in range(0, NUM_ENTRIES - 1):
+            self._entries[i] = self._entries[i].strip()
 
     def field(self, f):
         return self._entries[f]
@@ -50,8 +146,46 @@ class GameData:
     def picture(self):
         return self._picture
 
+    def system_picture(self):
+        global sys_pics
+        print("System = {}".format(self.system()))
+        if self.system() in sys_pics:
+            return sys_pics[self.system()]
+        else:
+            return ''
+
     def info(self):
-        info(self._system + ' ' + '>'.join(self._entries))
+        info(self._system + ': ' + '>'.join(self._entries))
+
+    def info_str(self):
+        s = []
+        if len(self._entries) >= TITLE:
+            s.append("Title: ")
+            s.append(self.field(TITLE))
+        if len(self._entries) >= YEAR and self.field(YEAR):
+            s.append("Year: ")
+            s.append( self.field(YEAR))
+        if len(self._entries) >= DEVELOPER and self.field(DEVELOPER):
+            s.append("Developer: ")
+            s.append(self.field(DEVELOPER))
+        if len(self._entries) >= GENRE and self.field(GENRE):
+            s.append("Genre: ")
+            s.append(self.field(GENRE))
+        if len(self._entries) >= PLAYERS and self.field(PLAYERS):
+            s.append("Players: ")
+            s.append(self.field(PLAYERS))
+        if len(self._entries) >= SCORE and self.field(SCORE):
+            s.append("Score: ")
+            s.append(self.field(SCORE))
+
+        if len(s) == 2: # No label for just one line
+            return s[1].strip()
+
+        str = ''
+        for a in range(0, int(len(s) / 2)):
+            str = str + s[a * 2] + s[a * 2 + 1] + "\n"
+
+        return str.strip()
 
 class GameDatabase:
     _systems = {}
@@ -62,12 +196,13 @@ class GameDatabase:
     def __init__(self, dirname, pictures):
         self._pictures = pictures
         self.scandir(dirname)
+        self._active_curpath = ''
         gd = GameData("MENU", "MENU>MENU>MENU")
         gd.set_picture("MENU.png")
         self._add(gd)
 
     def _add(self, gd):
-        self._systems[gd.system()] = gd
+        self._systems[gd.system()] = gd.system()
         self._roms[gd.field(ROM)] = gd
         self._titles[gd.field(TITLE)] = gd
         if gd.field(ROM) in pictures:
@@ -85,6 +220,8 @@ class GameDatabase:
         for fname in os.listdir(dirname):
             if fname.endswith(".csv"):
                 self.add_file(dirname, fname)
+        # Always use the MISTER rbfs as the priority
+        self.add_file(dirname, "MISTER_rbfs.csv")
 
     def systems(self):
         return self._systems
@@ -95,36 +232,135 @@ class GameDatabase:
     def titles(self):
         return self._titles
 
+    def _decode(self, s):
+        return s.replace("%20", " ").replace("%2C", ",").strip()
+
+    def title_from_startpath(self, sp):
+        return os.path.splitext(os.path.basename(os.path.normpath(sp)))[0]
+
     def lookup(self, s):
         strs = s.split(",")
-        corename, fullpath, curpath, startpath = '', '', '', ''
+        corename, fullpath, curpath, startpath, select, samgame = '', '', '', '', '', ''
         if len(strs) >= 2:
-            corename = strs[1].replace("%20", " ").replace("%2C", ",")
+            corename = self._decode(strs[1])
         if len(strs) >= 3:
-            fullpath = strs[2].replace("%20", " ").replace("%2C", ",")
+            fullpath = self._decode(strs[2])
         if len(strs) >= 4:
-            curpath = strs[3].replace("%20", " ").replace("%2C", ",")
+            curpath = self._decode(strs[3])
         if len(strs) >= 5:
-            startpath = strs[4].replace("%20", " ").replace("%2C", ",")
-        info("corename = {}, fullpath = {}, curpath = {}, startpath = {}".format(corename, fullpath, curpath, startpath))
+            startpath = self._decode(strs[4])
+        if len(strs) >= 6:
+            select = self._decode(strs[5])
+        if len(strs) >= 7:
+            samgame = self._decode(strs[6])
+        info("corename = {}, fullpath = {}, curpath = {}, startpath = {}, select = {}, samgame = {}".
+             format(corename, fullpath, curpath, startpath, select, samgame))
 
-        core_lookup, cur_lookup = '', ''
-        if corename != '' and corename != "MENU" and corename in self._roms:
-            core_lookup = self._roms[corename]
-        if curpath != '' and curpath in self._titles:
-            cur_lookup = self._titles[curpath]
+        if curpath.endswith(".mra") or \
+           curpath.endswith(".rbf") or \
+           curpath.endswith(".nes"):
+            curpath = os.path.splitext(curpath)[0]
 
-        info("Core Lookup = {}".format(str(core_lookup)))
-        info("Curr Lookup = {}".format(str(cur_lookup)))
+        core, title, alt_title, system = '', '', '', ''
 
-        if core_lookup != '':
-            return core_lookup
-        if cur_lookup != '':
-            return cur_lookup
+        if startpath == '/tmp/SAM_game.mgl' and select != 'active':
+            # SAM is active : use corename & samgame
+            if corename in database.roms():
+                system = "arcade"
+            else:
+                system = find_system(corename)
+            core = corename
+            title = samgame
+        elif select == 'active':
+            # Menu is active, use curpath & fullpath
+            core = ''
+            title = curpath
+            if "arcade" in fullpath.lower():
+                system = "arcade"
+            else:
+                print("FIND SYS : {}".format(fullpath.lower()))
+                system = find_system(fullpath.lower())
+        elif select == 'selected':
+            # Game is active, use corename & startpath and if needed curpath
+            core = corename
+            title = self.title_from_startpath(startpath)
+            alt_title = curpath
+            self._active_curpath = curpath
+            if "arcade" in startpath.lower() or "arcade" in fullpath.lower():
+                system = "arcade"
+            else:
+                system = find_system(corename)
+        elif select == 'cancelled':
+            # Game is active, use corename & startpath and if needed _active_curpath
+            if corename in database.roms():
+                system = "arcade"
+            else:
+                system = find_system(corename)
+            core = corename
+            title = self.title_from_startpath(startpath)
+            alt_title = self._active_curpath
 
-        #if s in self._systems:
-        #   return self._systems[s]
-        return None
+        info("System = '{}', Core = '{}', Title = '{}', AltTitle = '{}'".format(system, core, title, alt_title))
+
+        core_lookup, title_lookup, alt_title_lookup = None, None, None
+        if core and core != "MENU" and core in self._roms:
+            core_lookup = self._roms[core]
+        if title and title in self._titles:
+            title_lookup = self._titles[title]
+        if alt_title and alt_title in self._titles:
+            alt_title_lookup = self._titles[alt_title]
+
+        # Keep trying shortened versions of the title
+        if not title_lookup and not alt_title_lookup and (title or alt_title):
+            if title:
+                tit = title.split()
+                best = None
+                for w in range(len(tit) - 1, 0, -1):
+                    t = ' '.join(tit[0:w])
+                    print("Trying '{}'".format(t))
+                    look = None
+                    if t in self._titles:
+                        look = self._titles[t]
+                    if look:
+                        if look.picture:
+                            title_lookup = look
+                            break
+                        elif not title_lookup:
+                            title_lookup = look
+
+            if not title_lookup and alt_title:
+                tit = alt_title.split()
+                for w in range(len(tit) - 1, 0, -1):
+                    t = ' '.join(tit[0:w])
+                    print("Trying '{}'".format(t))
+                    look = None
+                    if t in self._titles:
+                        look = self._titles[t]
+                    if look:
+                        if look.picture:
+                            alt_title_lookup = look
+                            break
+                        elif not title_lookup:
+                            alt_title_lookup = look
+
+        if core_lookup:
+            info("Core  Lookup = {}".format(core_lookup.info_str()))
+        if title_lookup:
+            info("Title Lookup = {}".format(title_lookup.info_str()))
+        if alt_title_lookup:
+            info("ALT   Lookup = {}".format(alt_title_lookup.info_str()))
+
+        if core_lookup:
+            return core_lookup, system
+        if title_lookup:
+            return title_lookup, system
+        if alt_title_lookup:
+            return alt_title_lookup, system
+
+        # Make a db entry from the lookup key
+        print("FALLBACK '{}' '{}' '{}'".format(system, corename, title))
+        gd = GameData(system, corename + ">" + title + ">")
+        return gd, system
 
 class Rectangle:
     def __init__(self, x, y, w, h):
@@ -132,6 +368,12 @@ class Rectangle:
         self.y = y
         self.w = w
         self.h = h
+
+    def fromImg(self, img):
+        self.x = 0
+        self.y = 0
+        self.w = img.width
+        self.h = img.height
 
     def __str__(self):
         return  "({0}, {1}, {2}, {3})".format(self.x, self.y, self.w, self.h)
@@ -160,6 +402,23 @@ class Rectangle:
             fit.x = container.x + (horizontal_space / 2)
         return fit
 
+def calc_font(rw, rh, text, font, anchor=None, align='left'):
+    img = Image.new("RGB", (1, 1))
+    draw = ImageDraw.Draw(img)
+    f = font.font_variant(size=BASIC_FONT_SIZE)
+    (l,t,r,b) = draw.multiline_textbbox((0, 0), text, font=f, anchor=anchor, align=align)
+    w = abs(r - l)
+    h = abs(t - b)
+    scale = 1
+    if h != 0 and rh != 0:
+        if w / h > rw / rh:
+            scale = rw / w
+        else:
+            scale = rh / h
+    size = min(MAX_FONT_SIZE, int(BASIC_FONT_SIZE * scale))
+    info("Font size = {}".format(size))
+    return font.font_variant(size=size)
+
 class Text:
     def __init__(self, origin, text, fill, font, align, anchor, bgCol = None):
         self._origin = origin
@@ -178,6 +437,11 @@ class Text:
             draw.rectangle((l - bord, t - bord, r + bord, b + bord), fill=self._bgCol)
         draw.text(self._origin, self._text, fill=self._fill, font=self._font, align=self._align, anchor=self._anchor)
 
+class BuilderImg:
+    def __init__(self, r, img):
+        self.rect = r
+        self.img = img
+
 class ImageBuilder:
     def __init__(self, w, h, color = (0, 0, 0, 255)):
         self._images = []
@@ -189,8 +453,8 @@ class ImageBuilder:
     def clear(self, colour):
         self._img = Image.new("RGB", (w, h), color)
 
-    def add_layout_image(self, img):
-        self._images.append(img)
+    def add_layout_image(self, rect, img):
+        self._images.append(BuilderImg(rect, img))
 
     def add_text(self, origin, text, fill, font, align, anchor, bgCol = None):
         self._texts.append(Text(origin, text, fill, font, align, anchor, bgCol))
@@ -200,31 +464,11 @@ class ImageBuilder:
         aspect_sum = 0
 
         for img in self._images:
-            aspect = img.width / img.height
-            aspect_sum += aspect
-
-        if aspect_sum > final_aspect:
-            # Images are too wide, so no horizontal fillers needed
-            xpos = 0
-            for img in self._images:
-                aspect = img.width / img.height
-                x = self._w * aspect / aspect_sum
-                y = x / aspect
-
-                i = img.resize((int(x), int(y)), PIL.Image.BILINEAR)
-                extra_h = self._h - i.height
-                self._img.paste(i, (int(xpos), int(extra_h / 2)))
-                xpos += i.width
-        else:
-            # Fillers needed between images and at edges
-            filler = self._w * ((final_aspect - aspect_sum) / final_aspect) / (len(self._images) + 1)
-            xpos = filler
-            for img in self._images:
-                scale = self._h / img.height
-                i = img.resize((int(img.width * scale), int(img.height * scale)),
-                                PIL.Image.BILINEAR)
-                self._img.paste(i, (int(xpos), int(0)))
-                xpos += i.width + filler
+            imgR = Rectangle(0, 0, 0, 0)
+            imgR.fromImg(img.img)
+            fit = imgR.fitting_size(img.rect)
+            i = img.img.resize((int(fit.w), int(fit.h)), PIL.Image.BILINEAR)
+            self._img.paste(i, (int(fit.x), int(fit.y)))
 
         for txt in self._texts:
             txt.draw(self._img)
@@ -242,7 +486,8 @@ def kill_old_show(kill_proc):
 socket_data = ''
 def socket_reader(event_obj):
     global socket_data
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     port = 6666
 
     info("Socket successfully created")
@@ -259,14 +504,19 @@ def socket_reader(event_obj):
         if data:
             socket_data = data
             event_obj.set()
-            info("Received {}".format(data))
+            #info("Received {}".format(data))
 
 pictures = {}
+
 info("Scanning pictures ...")
 for fname in os.listdir("/home/pi/marquee-pictures"):
     if fname.endswith(".png"):
         base = os.path.splitext(fname)[0]
         pictures[base] = fname
+for fname in os.listdir("/home/pi/marquee-pictures/systems"):
+    if fname.endswith(".png"):
+        base = os.path.splitext(fname)[0]
+        sys_pics[base] = fname
 info("... done")
 info("Found {} pictures".format(len(pictures)))
 
@@ -278,6 +528,7 @@ info("Loaded {} systems, {} roms".format(len(database.systems()), len(database.r
 
 # Make an event for cross-thread waiting
 event_obj = threading.Event()
+event_obj.clear()
 
 # Create socket reading thread
 thread = threading.Thread(target=socket_reader, args=(event_obj,))
@@ -287,13 +538,13 @@ old_data = ''
 old_proc = None
 first_loop = True
 
-font = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeSansBoldOblique', 34)
-#font = ImageFont.load_default() # TODO
-
 while True:
     data = socket_data
 
-    if data != old_data and data != '':
+    if data != old_data and data:
+        info("data = {}".format(data))
+        info("old_data = {}".format(old_data))
+
         old_data = data
 
         entries = data.split(',')
@@ -301,33 +552,63 @@ while True:
         if len(entries) > 0:
             command = entries[0]
 
-        print("Command = ", command)
+        info("Command = {}".format(command))
 
         pic_name = "MENU.png"
         if command == 'CMDCOREXTRA':
             start_time = time.time()
-            gd = database.lookup(data)
+            gd, system = database.lookup(data)
             end_time = time.time()
             info("Lookup took: {}".format(end_time-start_time))
-            if gd:
-                pic_name = gd.picture()
-                gd.info()
+            pic_name = gd.picture()
+            if system in sys_pics:
+                sys_pic_name = "systems/" + sys_pics[system]
+            else:
+                sys_pic_name = "systems/" + gd.system_picture()
+            gd.info()
         else:
             info("UNKNOWN COMMAND {}".format(command))
-            pass
+            continue
+
+        if gd:
+            display_str = gd.info_str()
+        elif len(entries) > 1:
+            display_str = entries[1]
+        else:
+            display_str = entries[1]
 
         file = '/home/pi/marquee-pictures/' + pic_name
+        sys_file = '/home/pi/marquee-pictures/' + sys_pic_name
 
         builder = ImageBuilder(1920, 480)
 
+        has_sys = False
+        need_text = True
+        rect = Rectangle(0, 0, 1920, 480)
+        if os.path.isfile(sys_file) and (not os.path.isfile(file) or gd.system() != 'arcade'):
+            img = Image.open(sys_file)
+            builder.add_layout_image(Rectangle(0, 0, 480, 480), img)
+            rect = Rectangle(480, 0, 1920 - 480, 480)
+            has_sys = True
+
         if os.path.isfile(file):
-            start_time = time.time()
             img = Image.open(file)
-            end_time = time.time()
-            info("Loader took: {}".format(end_time-start_time))
-            builder.add_layout_image(img)
-        else:
-            builder.add_text((1920 / 2, 480 - 20), data, "white", font, align="left", anchor="md", bgCol=(0, 0, 0, 160))
+            builder.add_layout_image(rect, img)
+            need_text = False
+        elif not has_sys:
+            maybe_just_sys = find_system(display_str)
+            if maybe_just_sys in sys_pics:
+                img = Image.open('/home/pi/marquee-pictures/systems/' + sys_pics[maybe_just_sys])
+                builder.add_layout_image(rect, img)
+                need_text = False
+
+        if need_text:
+            print("Using string : {}".format(display_str))
+            align = "left"
+            anchor = "mm"
+            scaled_font = calc_font(rect.w, rect.h, display_str, font, anchor=anchor, align=align)
+            builder.add_text((rect.x + rect.w / 2, rect.h / 2), display_str, "white", font=scaled_font,
+                            align=align, anchor=anchor, bgCol=(0, 0, 0, 160))
 
         start_time = time.time()
         resimg = builder.get_result()
@@ -347,15 +628,5 @@ while True:
             threading.Thread(target=kill_old_show, args=(old_proc,)).start()
         old_proc = proc
 
-    event_obj.wait(100)
+    event_obj.wait(5)
     event_obj.clear()
-
-
-## FILES WRITTEN TO /tmp FOR EVERY MENU FILE HIGHLIGHTED
-##
-## more /tmp/CURRENTPATH
-## OutRun 2019 (Europe).md
-##
-## more /tmp/FULLPATH
-## games/Genesis/@Genesis - MegaSD Mega EverDrive 2022-05-18.zip/2 Europe - A-Z/Europe - M-R
-
