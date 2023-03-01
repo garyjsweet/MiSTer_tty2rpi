@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "tty2rpi.py",
+            "type": "python",
+            "env": { "DISPLAY": "192.168.1.50:0" },
+            "request": "launch",
+            "program": "/home/gary/Dev/MyTTY2RPi_fork/files_rpi/tmp/home/tty2rpi/tty2rpi-scripts/tty2rpi.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/gary/Dev/MyTTY2RPi_fork/files_rpi/tmp/home/tty2rpi/tty2rpi-scripts",
+            "justMyCode": true
+        }
+    ]
+}
