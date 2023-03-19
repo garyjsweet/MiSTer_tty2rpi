@@ -63,8 +63,8 @@ def startup_screen(message):
         startup_img = startup_img_file
         startup_builder.add_layout_image(rect, startup_img)
         rect = Rectangle(0, 0, DISPLAY_W, DISPLAY_H - 30)
-        startup_builder.add_text(rect, message, (255, 255, 255, 255), lcr="c",
-                                 tmb="b",  bgCol=(0, 0, 0, 160))
+        startup_builder.add_text(rect, message, (200, 200, 200, 200), lcr="c",
+                                 tmb="b",  bgCol=(0, 0, 0, 100))
         startup_builder.get_result(TMP_DESC)
         showImg()
 

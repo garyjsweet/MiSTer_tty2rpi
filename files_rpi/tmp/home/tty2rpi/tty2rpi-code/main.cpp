@@ -34,7 +34,7 @@ struct Point
 
 struct Rect
 {
-    uint32_t x{}, y{}, w{}, h{};
+    int32_t x{}, y{}, w{}, h{};
 
     Rect() = default;
 
@@ -66,7 +66,7 @@ struct Rect
             fit.w = (uint32_t)((float)fit.h * aspect);
         }
 
-        uint32_t vertical_space = container.h - fit.h;
+        int32_t vertical_space = container.h - fit.h;
         if (vert == "m" || vert == "c")
             fit.y = container.y + (vertical_space / 2);
         else if (vert == "t")
@@ -74,7 +74,7 @@ struct Rect
         else if (vert == "b")
             fit.y = container.y + vertical_space;
 
-        uint32_t horizontal_space = container.w - fit.w;
+        int32_t horizontal_space = container.w - fit.w;
         if (horz == "m" || horz == "c")
             fit.x = container.x + (horizontal_space / 2);
         else if (horz == "l")
@@ -83,6 +83,31 @@ struct Rect
             fit.x = container.x + horizontal_space;
 
         return fit;
+    }
+
+    Rect Enlarge(int32_t pixels)
+    {
+        return Rect(x - pixels, y - pixels, w + pixels * 2, h + pixels * 2);
+    }
+
+    Rect Intersect(const Rect &r)
+    {
+        Rect ret;
+        ret.x = std::max(x, r.x);
+        ret.y = std::max(y, r.y);
+
+        int32_t mr = x + w;
+        int32_t mb = y + h;
+        int32_t rr = r.x + r.w;
+        int32_t rb = r.y + r.h;
+
+        mr = std::min(mr, rr);
+        mb = std::min(mb, rb);
+
+        ret.w = mr - ret.x;
+        ret.h = mb - ret.y;
+
+        return ret;
     }
 };
 
@@ -323,6 +348,33 @@ public:
     uint8_t *Data() { return m_data.data(); }
     const uint8_t *Data() const { return m_data.data(); }
 
+    inline void Blend(uint8_t *dst, const Colour &col, uint8_t opacity)
+    {
+        const float div = 1.0f / 255.0f;
+        float alpha = (float)(opacity * div) * (col.a * div);
+
+        *(dst + 0) = alpha * col.r + (1.0f - alpha) * *(dst + 0);
+        *(dst + 1) = alpha * col.g + (1.0f - alpha) * *(dst + 1);
+        *(dst + 2) = alpha * col.b + (1.0f - alpha) * *(dst + 2);
+    }
+
+    void DrawRect(const Rect &rect, const Colour &col)
+    {
+        Rect r = GetRect().Intersect(rect);
+
+        if (col.a == 0)
+            return;
+
+        uint8_t *d = Data() + r.y * m_w * 3 + r.x * 3;
+
+        for (uint32_t y = 0; y < r.h; y++)
+        {
+            for (uint32_t x = 0; x < r.w; x++)
+                Blend(d + x * 3, col, 255);
+            d += m_w * 3;
+        }
+    }
+
     void CopyInto(Image *dstImage, const Rect &dstRect)
     {
         Rect fit = GetRect().FitToContainer(dstRect, "c", "m", /*keepSize=*/true);
@@ -337,27 +389,13 @@ public:
         }
     }
 
-    void Blend(uint8_t *dst, const Colour &col, uint8_t opacity)
-    {
-        const float div = 1.0f / 255.0f;
-        float alpha = (float)(opacity * div) * (col.a * div);
-
-        *(dst + 0) = alpha * col.r + (1.0f - alpha) * *(dst + 0);
-        *(dst + 1) = alpha * col.b + (1.0f - alpha) * *(dst + 1);
-        *(dst + 2) = alpha * col.g + (1.0f - alpha) * *(dst + 2);
-    }
-
     void DrawText(const Drawable::Text &dtext)
     {
         const Colour &col = dtext.colour;
 
         m_fontMan->RestoreBaseSize();
         Rect bbox = m_fontMan->TextBound(dtext.text);
-        printf("BBOX = %u, %u, %u, %u\n", bbox.x, bbox.y, bbox.w, bbox.h);
-
-        Rect fit = bbox.FitToContainer(dtext.rect, dtext.horz, dtext.vert, /*keepSize=*/false);
-        printf("CONT = %u, %u, %u, %u\n", dtext.rect.x, dtext.rect.y, dtext.rect.w, dtext.rect.h);
-        printf("FIT  = %u, %u, %u, %u\n", fit.x, fit.y, fit.w, fit.h);
+        Rect fit  = bbox.FitToContainer(dtext.rect, dtext.horz, dtext.vert, /*keepSize=*/false);
 
         float scale;
         if (bbox.Aspect() > fit.Aspect())
@@ -365,19 +403,19 @@ public:
         else
             scale = (float)fit.h / bbox.h;
 
-        printf("Scale = %f\n", scale);
-
         m_fontMan->NewSize(std::min(MAX_FONT_SIZE, (uint32_t)(scale * BASE_FONT_SIZE)));
         bbox = m_fontMan->TextBound(dtext.text);
         fit = bbox.FitToContainer(dtext.rect, dtext.horz, dtext.vert, /*keepSize=*/true);
-        printf("NEW FIT = %u, %u, %u, %u\n", fit.x, fit.y, fit.w, fit.h);
+       // printf("NEW FIT = %u, %u, %u, %u\n", fit.x, fit.y, fit.w, fit.h);
+
+        // Draw background rect
+        if (dtext.bgCol.a != 0)
+            DrawRect(fit.Enlarge(15), dtext.bgCol);
 
         // Pen is in 26.6 cartesian space coordinates
         FT_Vector pen;
         pen.x = fit.x * 64;
         pen.y = (m_h - fit.y) * 64;
-
-        printf("Start = %ld, %ld\n", pen.x / 64, pen.y / 64);
 
         FT_GlyphSlot slot = m_fontMan->Slot();
 
@@ -426,8 +464,6 @@ public:
             pen.x += slot->advance.x;
             pen.y += slot->advance.y;
         }
-
-        printf("End = %ld, %ld\n", pen.x / 64, pen.y / 64);
     }
 
     void RBSwap()
