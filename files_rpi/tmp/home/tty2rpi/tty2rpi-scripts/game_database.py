@@ -165,21 +165,21 @@ class GameDatabase:
     _roms = {}
     _titles = {}
 
-    def _scan_pics(self, dir):
+    def _scan_pics(self, dir, ext):
         pics = {}
         for fname in os.listdir(dir):
-            if fname.endswith(".png"):
+            if fname.endswith("." + ext):
                 base = os.path.splitext(fname)[0]
                 pics[base] = fname
         return pics
 
-    def __init__(self, dirname, picture_dir, syspic_dir):
-        self._pictures = self._scan_pics(picture_dir)
-        self._sys_pictures = self._scan_pics(syspic_dir)
+    def __init__(self, dirname, picture_dir, syspic_dir, ext):
+        self._pictures = self._scan_pics(picture_dir, ext)
+        self._sys_pictures = self._scan_pics(syspic_dir, ext)
         self._scandir(dirname)
         self._active_curpath = ''
         gd = GameData("MENU", "MENU>MENU>MENU")
-        gd.set_picture("MENU.png")
+        gd.set_picture("MENU." + ext)
         self._add(gd)
 
     def _add(self, gd):

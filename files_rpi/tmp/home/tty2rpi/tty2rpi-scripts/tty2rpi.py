@@ -1,4 +1,4 @@
-from PIL import Image, ImageFont
+from PIL import Image
 import subprocess
 import time
 import os.path
@@ -9,6 +9,7 @@ from log import log
 from rectangle import Rectangle
 from text import *
 from image_builder import ImageBuilder
+from gpiozero import Button
 
 if __name__ != "__main__":
     exit
@@ -17,6 +18,8 @@ if __name__ != "__main__":
 PI_FOLDER  = os.path.abspath("..")
 
 TMP_IMAGE = "/dev/shm/tty2rpi.ppm"
+TMP_DESC  = "/dev/shm/tty2rpi.desc"
+IMG_EXT   = "ppm"
 
 PORT = 6666
 
@@ -27,12 +30,7 @@ SYS_PIC_W = 480
 SYS_PIC_H = 480
 
 def showImg():
-    return subprocess.Popen(['feh', '--quiet', '--fullscreen', TMP_IMAGE])
-
-def kill_old_show(kill_proc):
-    time.sleep(4)
-    kill_proc.terminate()
-    kill_proc.wait() # Ensure no defunct processes are left
+    return subprocess.Popen(['../tty2rpi-code/build/tty2rpi-cpp', TMP_DESC])
 
 socket_data = ''
 
@@ -58,31 +56,44 @@ def socket_reader(event_obj):
             event_obj.set()
 
 def startup_screen(message):
-    old_proc = None
     startup_builder = ImageBuilder(DISPLAY_W, DISPLAY_H)
-    startup_img_file = PI_FOLDER + "/marquee-pictures/STARTUP.png"
+    startup_img_file = PI_FOLDER + "/marquee-pictures/STARTUP." + IMG_EXT
     if os.path.isfile(startup_img_file):
-        rect = Rectangle(0, 0, DISPLAY_W, DISPLAY_H - 80)
-        startup_img = Image.open(startup_img_file)
+        rect = Rectangle(0, 0, DISPLAY_W, DISPLAY_H)
+        startup_img = startup_img_file
         startup_builder.add_layout_image(rect, startup_img)
-        startup_builder.add_text(rect, (rect.w / 2, DISPLAY_H - 10),
-                                message, "white", font=font, align="left",
-                                anchor="md",  bgCol=(0, 0, 0, 160))
-        resimg = startup_builder.get_result()
-        resimg.save(TMP_IMAGE, compress_level=0)
-        old_proc = showImg()
-    return old_proc
+        rect = Rectangle(0, 0, DISPLAY_W, DISPLAY_H - 30)
+        startup_builder.add_text(rect, message, (255, 255, 255, 255), lcr="c",
+                                 tmb="b",  bgCol=(0, 0, 0, 160))
+        startup_builder.get_result(TMP_DESC)
+        showImg()
 
-old_proc = startup_screen("Loading game and image database ...")
+def pressed_top():
+    log("TOP pressed")
+
+def pressed_mid():
+    log("MID pressed")
+
+def pressed_bot():
+    log("BOT pressed")
+
+# Connect menu buttons to handlers
+top_button = Button(21)
+mid_button = Button(16)
+bot_button = Button(20)
+
+top_button.when_pressed = pressed_top
+mid_button.when_pressed = pressed_mid
+bot_button.when_pressed = pressed_bot
+
+startup_screen("Loading game and image database ...")
 
 log("Loading game and image database ...")
 database = GameDatabase(PI_FOLDER + "/database", PI_FOLDER + "/marquee-pictures",
-                        PI_FOLDER + "/marquee-pictures/systems")
+                        PI_FOLDER + "/marquee-pictures/systems", IMG_EXT)
 log("... done")
 
-if old_proc != None:
-    threading.Thread(target=kill_old_show, args=(old_proc,)).start()
-old_proc = startup_screen("Databases loaded")
+startup_screen("Databases loaded")
 
 # Make an event for cross-thread waiting
 event_obj = threading.Event()
@@ -109,7 +120,7 @@ while True:
 
         log("Command = {}".format(command))
 
-        pic_name = "MENU.png"
+        pic_name = "MENU." + IMG_EXT
         if command == 'CMDCOREXTRA':
             gd, system = database.lookup(data)
             pic_name = gd.picture()
@@ -140,7 +151,7 @@ while True:
         need_text = True
         rect = Rectangle(0, 0, DISPLAY_W, DISPLAY_H)
         if os.path.isfile(sys_file) and (not os.path.isfile(file) or gd.system() != 'arcade'):
-            img = Image.open(sys_file)
+            img = sys_file
             builder.add_layout_image(Rectangle(0, 0, SYS_PIC_W, SYS_PIC_H), img)
             rect = Rectangle(SYS_PIC_W, 0, DISPLAY_W - SYS_PIC_W, DISPLAY_H)
             has_sys = True
@@ -149,13 +160,13 @@ while True:
             continue
 
         if os.path.isfile(file):
-            img = Image.open(file)
+            img = file
             builder.add_layout_image(rect, img)
             need_text = False
         elif not has_sys:
             sys_pic_name = database.lookup_system_pic(find_system(display_str))
             if sys_pic_name:
-                img = Image.open(PI_FOLDER + '/marquee-pictures/systems/' + sys_pic_name)
+                img = PI_FOLDER + '/marquee-pictures/systems/' + sys_pic_name
                 builder.add_layout_image(rect, img)
                 need_text = False
 
@@ -165,32 +176,19 @@ while True:
         if need_text:
             display_str = display_str.strip("_").strip("@").strip("_")
             log("Using string : {}".format(display_str))
-            builder.add_text(rect, (rect.x + rect.w / 2, rect.h / 2), display_str,
-                             "white", font=font, align="left", anchor="mm")
+            builder.add_text(rect, display_str, (255, 255, 255, 255), lcr="c", tmb="m")
 
         if socket_data != data:
             continue
 
-        start_time = time.time()
-        resimg = builder.get_result()
-        end_time = time.time()
-        log("Builder took: {}".format(end_time-start_time))
-
-        start_time = time.time()
-        resimg.save(TMP_IMAGE, compress_level=0)
-        end_time = time.time()
-        log("Save took: {}".format(end_time-start_time))
+        builder.get_result(TMP_DESC)
 
         if socket_data != data:
             continue
 
-        proc = showImg()
+        showImg()
 
         builder = None
-
-        if old_proc != None:
-            threading.Thread(target=kill_old_show, args=(old_proc,)).start()
-        old_proc = proc
 
     event_obj.wait(5)
     event_obj.clear()

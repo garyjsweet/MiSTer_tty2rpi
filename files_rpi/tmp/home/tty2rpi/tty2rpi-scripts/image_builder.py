@@ -9,15 +9,13 @@ class BuilderImg:
         self.img = img
 
 class ImageBuilder:
-    def __init__(self, w, h, color = (0, 0, 0, 255)):
+    def __init__(self, w, h):
         self._images = []
         self._texts  = []
         self._w = w
         self._h = h
-        self._img = Image.new("RGB", (w, h), color)
 
-    def clear(self, color):
-        self._img = Image.new("RGB", (self._w, self._h), color)
+    def clear(self):
         self._images = []
         self._texts = []
 
@@ -27,18 +25,13 @@ class ImageBuilder:
     def add_layout_image(self, rect, img):
         self._images.append(BuilderImg(rect, img))
 
-    def add_text(self, rect, origin, text, fill, font, align, anchor, bgCol = None):
-        self._texts.append(Text(rect, origin, text, fill, font, align, anchor, bgCol))
+    def add_text(self, rect, text, fill, lcr, tmb, bgCol = (0, 0, 0, 0)):
+        self._texts.append(Text(rect, text, fill, lcr, tmb, bgCol))
 
-    def get_result(self):
-        for img in self._images:
-            imgR = Rectangle(0, 0, 0, 0)
-            imgR.fromImg(img.img)
-            fit = imgR.fit_in_container(img.rect)
-            i = img.img.resize((int(fit.w), int(fit.h)), PIL.Image.BILINEAR)
-            self._img.paste(i, (int(fit.x), int(fit.y)))
+    def get_result(self, filename):
+        with open(filename, 'w') as fp:
+            for img in self._images:
+                fp.write("`I:" + str(img.rect) + " F:" + str(img.img) + "\n")
 
-        for txt in self._texts:
-            txt.draw(self._img)
-
-        return self._img
+            for txt in self._texts:
+                fp.write(str(txt) + "\n")
