@@ -142,7 +142,6 @@ void Image::DrawText(const Text &dtext)
     m_fontMan->NewSize(std::min(MAX_FONT_SIZE, (uint32_t)(scale * BASE_FONT_SIZE)));
     bbox = m_fontMan->TextBound(dtext.text);
     fit = bbox.FitToContainer(dtext.rect, dtext.horz, dtext.vert, /*keepSize=*/true);
-    // printf("NEW FIT = %u, %u, %u, %u\n", fit.x, fit.y, fit.w, fit.h);
 
     // Draw background rect
     if (dtext.bgCol.a != 0)

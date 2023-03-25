@@ -78,7 +78,7 @@ private:
     GameRecord *AddRecord(const std::string &system, const std::string &row);
 
     std::map<std::string, const GameRecord *>::iterator
-    LookupVariants(const std::string &title);
+    LookupVariantsWithPic(const std::string &title);
 
 private:
     std::list<GameRecord>                     m_games;

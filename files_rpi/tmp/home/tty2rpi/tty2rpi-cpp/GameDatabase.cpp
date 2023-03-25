@@ -304,31 +304,32 @@ static string TitleFromStartPath(const string &sp)
 }
 
 std::map<std::string, const GameRecord *>::iterator
-GameDatabase::LookupVariants(const string &title)
+GameDatabase::LookupVariantsWithPic(const string &title)
 {
-    // TODO
+    // Try shortened versions of the title
+    vector<string> parts = Tokenize(ToLower(title), ' ');
+
+    for (size_t p = parts.size() - 1; p > 1; p--)
+    {
+        string s;
+        for (size_t pp = 0; pp < p; pp++)
+            s += parts[pp] + " ";
+        s[s.size() - 1] = '\0';
+
+        if (m_log)
+            cout << "Trying alternate: '" << s << "'\n";
+
+        auto iter = m_titleMap.find(s);
+        if (iter != m_titleMap.end())
+        {
+            const GameRecord &rc = *(iter->second);
+            if (!rc.Picture().empty())
+                return iter;
+        }
+    }
+
     return m_titleMap.end();
 }
-
-/*
-    def _lookup_title_variants(self, title):
-        # Keep trying shortened versions of the title
-        tit = title.split()
-        title_lookup = None
-        for w in range(len(tit) - 1, 0, -1):
-            t = ' '.join(tit[0:w])
-            log("Trying title '{}'".format(t))
-            look = None
-            if t in self._titles:
-                look = self._titles[t]
-            if look:
-                if look.picture:
-                    title_lookup = look
-                    break
-                elif not title_lookup:
-                    title_lookup = look
-        return title_lookup
-*/
 
 GameRecord GameDatabase::Lookup(const string &key, string *sys)
 {
@@ -355,7 +356,8 @@ GameRecord GameDatabase::Lookup(const string &key, string *sys)
         core  = corename;
         title = samgame;
     }
-    else if (select == "active")
+    // "selected" is to ensure the menu doesn't change when the game is loading
+    else if (select == "active" || select == "selected")
     {
         string lfp = ToLower(fullpath);
         if (lfp == "_console" || lfp == "_computer")
@@ -370,7 +372,7 @@ GameRecord GameDatabase::Lookup(const string &key, string *sys)
         core = "";
         title = curpath;
     }
-    else if (select == "cancelled" || select == "selected")
+    else if (select == "cancelled")
     {
         // Game is active, use corename & startpath
         if (m_romMap.find(corename) != m_romMap.end())
@@ -390,7 +392,7 @@ GameRecord GameDatabase::Lookup(const string &key, string *sys)
     std::map<std::string, const GameRecord *>::iterator titleLookup    = m_titleMap.end();
     std::map<std::string, const GameRecord *>::iterator altTitleLookup = m_titleMap.end();
 
-    if (core != "" && core != "MENU")
+    if (core != "" && core != "menu")
         coreLookup = m_romMap.find(ToLower(core));
 
     if (title != "")
@@ -403,9 +405,9 @@ GameRecord GameDatabase::Lookup(const string &key, string *sys)
         (title != "" || altTitle != ""))
     {
         if (title != "")
-            titleLookup = LookupVariants(title);
+            titleLookup = LookupVariantsWithPic(title);
         if (titleLookup == m_titleMap.end() && altTitle != "")
-            altTitleLookup = LookupVariants(altTitle);
+            altTitleLookup = LookupVariantsWithPic(altTitle);
     }
 
     if (m_log)
