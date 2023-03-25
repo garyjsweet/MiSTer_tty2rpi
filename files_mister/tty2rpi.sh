@@ -63,8 +63,6 @@ dbug "${TTYDEV} detected, setting Parameters."
 sleep ${WAITSECS}
 
 while true; do                                                                # main loop
-  newcore=$(encodespaces "$(cat ${corenamefile})")                                              # get CORENAME
-  dbug "Read CORENAME: -${newcore}-"
   newfullpath=$(encodespaces "$(cat ${fullpathfile})")
   dbug "Read FULLPATH: -${newfullpath}-"
   newstartpath=$(encodespaces "$(cat ${startpathfile})")
@@ -75,13 +73,15 @@ while true; do                                                                # 
   dbug "Read FILESELECT: -${newfileselect}-"
   newcurpath=$(encodespaces "$(cat ${currentpathfile})")
   dbug "Read CURPATH: -${newcurpath}-"
+  newcore=$(encodespaces "$(cat ${corenamefile})")                                              # get CORENAME
+  dbug "Read CORENAME: -${newcore}-"
 
   if [ "${newcore}" != "${oldcore}" ] ||
      [ "${newcurpath}" != "${oldcurpath}" ] ||
      [ "${newfullpath}" != "${oldfullpath}" ] ||
      [ "${newstartpath}" != "${oldstartpath}" ] ||
      [ "${newfileselect}" != "${oldfileselect}" ] ||
-     [ "${newsamgame}" != "${oldsamegame}" ]; then                                        # proceed only if Core has changed
+     [ "${newsamgame}" != "${oldsamgame}" ]; then                                        # proceed only if Core has changed
     dbug "Send -${newcore}- -${newfullpath}- -${newcurpath}- -${newstartpath}- -${newfileselect}- -${newsamgame}- ${TTYDEV}."
     senddata "CMDCOREXTRA,${newcore},${newfullpath},${newcurpath},${newstartpath},${newfileselect},${newsamgame}"                                                # The "Magic"
     oldcore="${newcore}"                                                        # update oldcore variable
@@ -92,9 +92,9 @@ while true; do                                                                # 
     oldsamgame="${newsamgame}"
   else                                                                        # end if core check
     . ${userinifile}                                            # ReRead INI for changes
-    inotifywait ${quiet} -e modify -e create "${userinifile}" "${currentpathfile}" "${newfileselect}"
+    inotifywait ${quiet} -e modify -e create "${userinifile}" "${currentpathfile}" "${selectfile}" "${samgamefile}"
   fi
-  sleep 0.1
+  #sleep 0.1
 
 done                                                                                # end while
 # ** End Main **
