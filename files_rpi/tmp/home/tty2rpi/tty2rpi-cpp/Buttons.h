@@ -30,21 +30,23 @@
 #include <mutex>
 #include <condition_variable>
 
-class Buttons;
-
-class Socket
+class Buttons
 {
 public:
-	Socket(Buttons *buttons);
+	Buttons();
 
-	std::string GetDataBlocking();
+    bool HasPresses();
+    uint32_t GetPressedMask();
 
-    void SetData(const std::string &data);
+    void SetNotify(std::condition_variable *cv) { m_notifyCV = cv; }
 
 private:
-    Buttons                *m_buttons;
-    std::thread             m_thread;
-    std::mutex              m_mutex;
-    std::condition_variable m_cv;
-    std::string             m_data;
+    void Pressed(uint32_t indx);
+    friend void PollThread(Buttons *buttons);
+
+private:
+    std::thread              m_thread;
+    std::mutex               m_mutex;
+    uint32_t                 m_pressedMask = 0;
+    std::condition_variable *m_notifyCV = nullptr;
 };

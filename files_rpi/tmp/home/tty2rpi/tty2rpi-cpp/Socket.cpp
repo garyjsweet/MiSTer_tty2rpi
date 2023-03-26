@@ -24,6 +24,7 @@
  */
 
 #include "Socket.h"
+#include "Buttons.h"
 
 #include <iostream>
 
@@ -72,9 +73,12 @@ static void DataThread(Socket *socket)
 	}
 }
 
-Socket::Socket()
+Socket::Socket(Buttons *buttons) : m_buttons(buttons)
 {
 	m_thread = std::thread(DataThread, this);
+
+	// Tell the buttons to wake us if pressed
+	m_buttons->SetNotify(&m_cv);
 }
 
 // NOTE: no destructor or thread cleanup, this code always just runs forever
@@ -93,7 +97,7 @@ std::string Socket::GetDataBlocking()
 	std::string ret;
 
 	std::unique_lock lock(m_mutex);
-	m_cv.wait(lock, [this]{ return !this->m_data.empty(); });
+	m_cv.wait(lock, [this]{ return !this->m_data.empty() || m_buttons->HasPresses(); });
 
 	std::swap(ret, m_data);
 	return ret;

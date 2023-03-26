@@ -29,8 +29,10 @@
 #include "GameDatabase.h"
 #include "Socket.h"
 #include "StringManip.h"
+#include "Buttons.h"
 
 #include <iostream>
+#include <fstream>
 #include <filesystem>
 
 #ifdef PI_BUILD
@@ -45,6 +47,7 @@ static void StartupMessage(Framebuffer &fb, Image &dstImage, const Image &bgImg,
                            const std::string &msg)
 {
     bgImg.CopyInto(&dstImage, dstImage.GetRect());
+
 
     Image::Text txt;
     txt.rect = Rect(0, 0, DISPLAY_R.w, DISPLAY_R.h - 30);
@@ -88,8 +91,11 @@ int main(int argc, char **argv)
         StartupMessage(framebuffer, dstImage, startupImage, "Databases loaded");
         startupImage = Image(); // Return resources back to system
 
+        // Start the button handling object
+        Buttons buttons;
+
         // Start looking for socket connections
-        Socket            socket;
+        Socket            socket(&buttons);
         std::string       oldData;
         const std::string cmdTag = "CMDCOREXTRA,";
 
@@ -98,12 +104,23 @@ int main(int argc, char **argv)
             // Start with a clear image
             dstImage.Clear();
 
-            // Wait for data on the socket
+            // Wait for data on the socket (or a pi menu button press)
             std::string data = socket.GetDataBlocking();
-            if (log)
-                std::cout << "Received socket data '" << data << "'\n";
+            if (data.empty())
+            {
+                // Button press
+                if (log)
+                    std::cout << "BUTTONS PRESSED = " << buttons.GetPressedMask() << "\n";
+                // TODO : implement the menu system overlay
+            }
+            else
+            {
+                // Socket data
+                if (log)
+                    std::cout << "Received socket data '" << data << "'\n";
+            }
 
-            if (data == oldData)
+            if (data == oldData || data.empty())
                 continue;
 
             oldData = data;

@@ -1,15 +1,6 @@
-[submodule "lodepng"]
-	path = files_rpi/tmp/home/tty2rpi/tty2rpi-code/lodepng
-	url = https://github.com/lvandeve/lodepng.git
-[submodule "files_rpi/tmp/home/tty2rpi/tty2rpi-code/fpng"]
-	path = files_rpi/tmp/home/tty2rpi/tty2rpi-code/fpng
-	url = https://github.com/richgel999/fpng.git
 [submodule "files_rpi/tmp/home/tty2rpi/tty2rpi-code/freetype"]
 	path = files_rpi/tmp/home/tty2rpi/tty2rpi-code/freetype
 	url = https://github.com/freetype/freetype.git
-[submodule "files_rpi/tmp/home/tty2rpi/tty2rpi-code/sockpp"]
-	path = files_rpi/tmp/home/tty2rpi/tty2rpi-code/sockpp
-	url = https://github.com/fpagliughi/sockpp.git
 [submodule "files_rpi/tmp/home/tty2rpi/tty2rpi-cpp/sockpp"]
 	path = files_rpi/tmp/home/tty2rpi/tty2rpi-cpp/sockpp
 	url = https://github.com/fpagliughi/sockpp.git

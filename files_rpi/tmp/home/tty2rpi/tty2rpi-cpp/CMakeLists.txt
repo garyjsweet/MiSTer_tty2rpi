@@ -10,6 +10,7 @@ set(SOURCES
     Socket.cpp
     GameDatabase.cpp
     StringManip.cpp
+    Buttons.cpp
 )
 
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
