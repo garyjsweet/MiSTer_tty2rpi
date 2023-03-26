@@ -1,1 +1,0 @@
-scp -rp files_mister/* root@mister:/media/fat/tty2rpi
