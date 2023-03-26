@@ -1,8 +1,8 @@
 # MiSTer_tty2rpi-cpp
-WIP : A rewrite of [tty2rpi] in C++.
+WIP : A rewrite of [tty2rpi](https://github.com/ojaksch/MiSTer_tty2rpi) in C++.
 
 Uses a modified version of the socket-based communication from the MiSTer along
-with a small modification to [Main_MiSTer] (see [here](https://github.com/MiSTer-devel/Main_MiSTer/pull/763)).
+with a small modification to [Main_MiSTer](https://github.com/MiSTer-devel/Main_MiSTer) (see [here](https://github.com/MiSTer-devel/Main_MiSTer/pull/763)).
 
 Most of the shell scripts and services have been removed, a single service
 remains that just runs the C++ code once.
