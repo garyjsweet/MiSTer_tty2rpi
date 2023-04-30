@@ -246,12 +246,14 @@ void GameDatabase::AddFile(const string &path)
 }
 
 GameDatabase::GameDatabase(const string &dirname, const string &pictureDir,
-                           const string &syspicDir, const string &ext, bool log) :
+                           const string &syspicDir, const string &controllerDir,
+                           const string &ext, bool log) :
     m_log(log)
 {
     // Scan the pictures
     ScanPicDir(pictureDir, ext, &m_pictures);
     ScanPicDir(syspicDir, ext, &m_sysPictures);
+    ScanPicDir(controllerDir, ext, &m_controllerPictures);
 
     // Scan the database files
     for (const auto &file : filesystem::directory_iterator(dirname))
@@ -272,6 +274,15 @@ string GameDatabase::LookupSystemPic(const string &system) const
 {
     auto iter = m_sysPictures.find(FindSystem(system));
     if (iter != m_sysPictures.end())
+        return iter->second;
+
+    return string();
+}
+
+string GameDatabase::LookupControllerPic(const string &system) const
+{
+    auto iter = m_controllerPictures.find(FindSystem(system));
+    if (iter != m_controllerPictures.end())
         return iter->second;
 
     return string();

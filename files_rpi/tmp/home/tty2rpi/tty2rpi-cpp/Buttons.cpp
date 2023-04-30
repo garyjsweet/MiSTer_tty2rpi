@@ -40,9 +40,20 @@ const std::array<uint8_t, 3> PINS = { TOP_PIN, MID_PIN, BOT_PIN };
 
 static void Write(const std::string &file, const std::string &data)
 {
-	FILE *fp = fopen(file.c_str(), "w");
+    // The gpio files don't always open first time, so try in a loop
+	FILE *fp = NULL;
+    for (uint32_t i = 0; i < 100 && fp == NULL; i++)
+    {
+        fp = fopen(file.c_str(), "w");
+        if (!fp)
+            usleep(10000);
+    }
+
     if (!fp)
+    {
+        fprintf(stderr, "Can't open %s for writing data '%s'\n", file.c_str(), data.c_str());
         throw "Failed to open GPIO file for writing";
+    }
 	fwrite(data.c_str(), 1, data.size(), fp);
 	fclose(fp);
 }

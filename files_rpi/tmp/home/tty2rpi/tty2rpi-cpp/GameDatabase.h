@@ -68,10 +68,12 @@ class GameDatabase
 {
 public:
     GameDatabase(const std::string &dirname, const std::string &pictureDir,
-                 const std::string &syspicDir, const std::string &ext, bool log);
+                 const std::string &syspicDir, const std::string &controllerDir,
+                 const std::string &ext, bool log);
 
     GameRecord Lookup(const std::string &key, std::string *system);
     std::string LookupSystemPic(const std::string &system) const;
+    std::string LookupControllerPic(const std::string &system) const;
 
 private:
     void AddFile(const std::string &path);
@@ -86,5 +88,6 @@ private:
     std::map<std::string, const GameRecord *> m_titleMap;
     std::map<std::string, std::string>        m_pictures;
     std::map<std::string, std::string>        m_sysPictures;
+    std::map<std::string, std::string>        m_controllerPictures;
     bool                                      m_log;
 };

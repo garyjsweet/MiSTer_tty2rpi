@@ -117,9 +117,10 @@ void Image::DrawRect(const Rect &rect, const Colour &col)
     }
 }
 
-void Image::CopyInto(Image *dstImage, const Rect &dstRect) const
+void Image::CopyInto(Image *dstImage, const Rect &dstRect,
+                     const std::string hAlign, const std::string vAlign) const
 {
-    Rect fit = GetRect().FitToContainer(dstRect, "c", "m", /*keepSize=*/true);
+    Rect fit = GetRect().FitToContainer(dstRect, hAlign, vAlign, /*keepSize=*/true);
 
     for (uint32_t y = 0; y < fit.h; y++)
         memcpy(dstImage->PixPtr(fit.x, fit.y + y), PixPtr(0, y), m_w * BPP);

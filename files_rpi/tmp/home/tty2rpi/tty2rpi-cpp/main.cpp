@@ -41,6 +41,12 @@ const std::string ROOT = "/home/pi/";
 const std::string ROOT = "/home/gary/Dev/MyTTY2RPi_fork/files_rpi/tmp/home/tty2rpi/";
 #endif
 
+enum UIMode
+{
+    UI_MAIN = 0,
+    UI_CONTROLLER,
+};
+
 const Rect DISPLAY_R(0, 0, 1920, 480);
 
 static void StartupMessage(Framebuffer &fb, Image &dstImage, const Image &bgImg,
@@ -68,6 +74,111 @@ static inline bool FileExists(const std::string &name)
     return std::filesystem::exists(name) && !std::filesystem::is_directory(name);
 }
 
+static void BuildMainUI(Image &dstImage, GameDatabase &db, const std::string &data, bool log)
+{
+    std::string system;
+    GameRecord rec = db.Lookup(data, &system);
+
+    std::string sysPicName = db.LookupSystemPic(system);
+    std::string displayStr = rec.InfoStr();
+
+    std::string picFile = rec.Picture();
+    std::string sysFile = sysPicName;
+
+    dstImage.Clear();
+
+    if (log)
+    {
+        std::cout << "picFile = '" << picFile << "'\n";
+        std::cout << "sysFile = '" << sysFile << "'\n";
+    }
+
+    bool hasSys   = false;
+    bool needText = true;
+    Rect rect     = DISPLAY_R;
+
+    if (FileExists(picFile))
+    {
+        Image picImage(picFile);
+        picImage.CopyInto(&dstImage, rect);
+    }
+    else
+    {
+        Rect textRect = DISPLAY_R;
+
+        if (!FileExists(sysFile))
+            sysFile = db.LookupSystemPic(displayStr);
+
+        if (FileExists(sysFile))
+        {
+            Image sysImage(sysFile);
+            sysImage.CopyInto(&dstImage, sysImage.GetRect());
+
+            uint32_t sysW = sysImage.GetRect().w;
+            textRect = Rect(sysW, 0, DISPLAY_R.w - sysW, DISPLAY_R.h);
+        }
+
+        Trim(Trim(Trim(displayStr, "_"), "@"), "_");
+
+        Image::Text txt;
+        txt.rect = textRect;
+        txt.text = displayStr;
+        txt.colour = Colour(230, 230, 230, 255);
+        txt.horz = "m";
+        txt.vert = "m";
+        txt.bgCol = Colour(0, 0, 0, 0); // No bg rect
+
+        dstImage.DrawText(txt);
+    }
+}
+
+static void BuildControllerUI(Image &dstImage, GameDatabase &db, const std::string &data, bool log)
+{
+    std::string system;
+    GameRecord rec = db.Lookup(data, &system);
+
+    std::string sysFile = db.LookupSystemPic(system);
+
+    Rect textRect = DISPLAY_R;
+
+    dstImage.Clear();
+
+    if (!FileExists(sysFile))
+        sysFile = db.LookupSystemPic(rec.InfoStr());
+
+    if (FileExists(sysFile))
+    {
+        Image sysImage(sysFile);
+        sysImage.CopyInto(&dstImage, sysImage.GetRect());
+
+        uint32_t sysW = sysImage.GetRect().w;
+        textRect = Rect(sysW, 0, DISPLAY_R.w - sysW, DISPLAY_R.h);
+    }
+
+    std::string ctrlPic = db.LookupControllerPic(system);
+
+    if (!ctrlPic.empty() && FileExists(ctrlPic))
+    {
+        Image ctrlImage(ctrlPic);
+        ctrlImage.CopyInto(&dstImage, textRect, "c", "b");
+    }
+    else
+    {
+        BuildMainUI(dstImage, db, data, log);
+        return;
+    }
+
+    Image::Text txt;
+    txt.rect = textRect;
+    txt.text = rec.Field(GameRecord::TITLE);
+    txt.colour = Colour(230, 230, 230, 255);
+    txt.horz = "m";
+    txt.vert = "t";
+    txt.bgCol = Colour(0, 0, 0, 0); // No bg rect
+
+    dstImage.DrawText(txt);
+}
+
 int main(int argc, char **argv)
 {
     // Any arguments will cause log output to be produced
@@ -86,6 +197,7 @@ int main(int argc, char **argv)
         GameDatabase db(ROOT + "database",
                         ROOT + "marquee-pictures",
                         ROOT + "marquee-pictures/systems",
+                        ROOT + "marquee-pictures/systems/controllers",
                         ".ppm", log);
 
         StartupMessage(framebuffer, dstImage, startupImage, "Databases loaded");
@@ -95,92 +207,52 @@ int main(int argc, char **argv)
         Buttons buttons;
 
         // Start looking for socket connections
-        Socket            socket(&buttons);
-        std::string       oldData;
-        const std::string cmdTag = "CMDCOREXTRA,";
+        Socket      socket(&buttons);
+        std::string curData;
+        UIMode      mode = UI_MAIN;
 
         while (true)
         {
-            // Start with a clear image
-            dstImage.Clear();
-
             // Wait for data on the socket (or a pi menu button press)
             std::string data = socket.GetDataBlocking();
             if (data.empty())
             {
-                // Button press
+                // Button press - just toggle main vs controller ui regardless of button
+                // Note: we must call GetPressedMask() to reset the state
+                uint32_t mask = buttons.GetPressedMask();
                 if (log)
-                    std::cout << "BUTTONS PRESSED = " << buttons.GetPressedMask() << "\n";
-                // TODO : implement the menu system overlay
+                    std::cout << "BUTTONS PRESSED = " << mask << "\n";
+
+                mode = mode == UI_MAIN ? UI_CONTROLLER : UI_MAIN;
             }
             else
             {
                 // Socket data
                 if (log)
                     std::cout << "Received socket data '" << data << "'\n";
+
+                if (data == curData || data.empty())
+                    continue;
+
+                const std::string cmdTag = "CMDCOREXTRA,";
+                if (data.substr(0, cmdTag.length()) != cmdTag)
+                    continue;
+
+                curData = data;
             }
 
-            if (data == oldData || data.empty())
-                continue;
-
-            oldData = data;
-
-            if (data.substr(0, cmdTag.length()) != cmdTag)
-                continue;
-
-            std::string system;
-            GameRecord rec = db.Lookup(data, &system);
-
-            std::string sysPicName = db.LookupSystemPic(system);
-            std::string displayStr = rec.InfoStr();
-
-            std::string picFile = rec.Picture();
-            std::string sysFile = sysPicName;
-
-            if (log)
+            // Build UI image
+            switch (mode)
             {
-                std::cout << "picFile = '" << picFile << "'\n";
-                std::cout << "sysFile = '" << sysFile << "'\n";
+            case UI_MAIN :
+                BuildMainUI(dstImage, db, curData, log);
+                break;
+            case UI_CONTROLLER :
+                BuildControllerUI(dstImage, db, curData, log);
+                break;
             }
 
-            bool hasSys   = false;
-            bool needText = true;
-            Rect rect     = DISPLAY_R;
-
-            if (FileExists(picFile))
-            {
-                Image picImage(picFile);
-                picImage.CopyInto(&dstImage, rect);
-            }
-            else
-            {
-                Rect textRect = DISPLAY_R;
-
-                if (!FileExists(sysFile))
-                    sysFile = db.LookupSystemPic(displayStr);
-
-                if (FileExists(sysFile))
-                {
-                    Image sysImage(sysFile);
-                    sysImage.CopyInto(&dstImage, sysImage.GetRect());
-
-                    uint32_t sysW = sysImage.GetRect().w;
-                    textRect = Rect(sysW, 0, DISPLAY_R.w - sysW, DISPLAY_R.h);
-                }
-
-                Trim(Trim(Trim(displayStr, "_"), "@"), "_");
-
-                Image::Text txt;
-                txt.rect = textRect;
-                txt.text = displayStr;
-                txt.colour = Colour(230, 230, 230, 255);
-                txt.horz = "m";
-                txt.vert = "m";
-                txt.bgCol = Colour(0, 0, 0, 0); // No bg rect
-
-                dstImage.DrawText(txt);
-            }
-
+            // Display UI image
             dstImage.RBSwap();
             framebuffer.SetToImage(dstImage);
         }

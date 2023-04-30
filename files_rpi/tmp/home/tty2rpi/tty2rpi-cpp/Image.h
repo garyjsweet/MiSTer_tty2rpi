@@ -78,7 +78,8 @@ public:
     }
 
     void DrawRect(const Rect &rect, const Colour &col);
-    void CopyInto(Image *dstImage, const Rect &dstRect) const;
+    void CopyInto(Image *dstImage, const Rect &dstRect,
+                  const std::string hAlign = "c", const std::string vAlign = "m") const;
     void DrawText(const Text &dtext);
     void RBSwap();
     void Clear();
